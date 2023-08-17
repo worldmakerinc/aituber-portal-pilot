@@ -20,8 +20,8 @@ import {
   Thead,
   Tr,
 } from '@chakra-ui/react'
-import { useSession } from 'next-auth/react'
-import { useState } from 'react'
+import { signOut, useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
 import {
   FiBell,
   FiBox,
@@ -41,6 +41,42 @@ export default function Dashboard() {
   const [display, changeDisplay] = useState('hide')
   const [value, changeValue] = useState(1)
   const { data: session } = useSession()
+  const [recentConversation, changeRecentConversation] = useState([''])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const requestBody = JSON.stringify({
+          user_id: session?.user?.id,
+          num_conversations: 3,
+        })
+        console.log('requestBody:', requestBody)
+
+        const response = await fetch(
+          'https://aituber-line-bot-backend.azurewebsites.net/line/recent-conversation',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: requestBody,
+          }
+        )
+
+        const data = await response.json()
+        console.log('data:', data)
+
+        if (data.conversations) {
+          changeRecentConversation(data.conversations)
+        } else {
+          console.error('Error:', data.error)
+        }
+      } catch (error) {
+        console.error('API fetch error:', error)
+      }
+    }
+    fetchData()
+  }, [session])
 
   if (!session?.user) {
     return (
@@ -154,6 +190,16 @@ export default function Dashboard() {
             {session?.user?.name || ''}
           </Flex>
         </Heading>
+        <Flex justifyContent="space-between" mb={8}>
+          <Flex align="left" flexDir="column">
+            <Heading as="h2" size="lg" letterSpacing="tight">
+              Recent Conversations
+            </Heading>
+            {recentConversation.map((conversation, index) => (
+              <Text>{conversation}</Text>
+            ))}
+          </Flex>
+        </Flex>
         <Text color="gray" fontSize="sm">
           My Balance
         </Text>
@@ -609,8 +655,9 @@ export default function Dashboard() {
           color="#fff"
           p={7}
           borderRadius={15}
+          onClick={() => signOut()}
         >
-          Send money
+          ログアウト
         </Button>
       </Flex>
     </Flex>

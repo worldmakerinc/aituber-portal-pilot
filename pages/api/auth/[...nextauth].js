@@ -7,29 +7,33 @@ const authOptions = {
       clientId: process.env.LINE_CLIENT_ID ?? '',
       clientSecret: process.env.LINE_CLIENT_SECRET ?? '',
       // profile(profile) {
+      //   console.log('Fetched LINE profile:', profile)
       //   return {
-      //     id: profile.userId,
-      //     name: profile.displayName,
+      //     id: profile.sub,
+      //     name: profile.name,
       //     email: null,
-      //     image: profile.pictureUrl,
+      //     image: profile.picture,
       //   }
       // },
     }),
   ],
-  // callbacks: {
-  //   session: async ({ session, user, token }) => {
-  //     return Promise.resolve({
-  //       ...session,
-  //       user: {
-  //         ...session.user,
-  //         id: user.id,
-  //         name: user.name,
-  //         email: user.email,
-  //         image: user.image,
-  //       },
-  //     })
-  //   },
-  // },
+  callbacks: {
+    session: async ({ session, token }) => {
+      if (session?.user) {
+        session.user.id = token.uid
+      }
+      return session
+    },
+    jwt: async ({ user, token }) => {
+      if (user) {
+        token.uid = user.id
+      }
+      return token
+    },
+  },
+  session: {
+    strategy: 'jwt',
+  },
 }
 
 export default NextAuth(authOptions)

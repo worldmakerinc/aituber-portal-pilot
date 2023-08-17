@@ -1,18 +1,15 @@
 import { NextPage } from 'next'
-import { LoginButton } from '../components/LoginButton'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
+import { LoginButton } from '../components/LoginButton'
 
 const Login: NextPage = () => {
-    const { data: session } = useSession()
+  const { data: session } = useSession()
+  const router = useRouter()
 
-    if (session?.user) {
-      return (
-        <div>
-          <p>{session.user.name}さん、ログイン済みです！</p>
-          <img src={session.user.image} alt={session.user.name} />
-        </div>
-      )
-    }
+  if (session?.user) {
+    router.push('/dashboard')
+  }
   return (
     <div>
       <LoginButton />

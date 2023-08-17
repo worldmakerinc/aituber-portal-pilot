@@ -20,6 +20,7 @@ import {
   Thead,
   Tr,
 } from '@chakra-ui/react'
+import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 import {
   FiBell,
@@ -39,6 +40,17 @@ import MyChart from '../components/MyChart'
 export default function Dashboard() {
   const [display, changeDisplay] = useState('hide')
   const [value, changeValue] = useState(1)
+  const { data: session } = useSession()
+
+  if (!session?.user) {
+    return (
+      <div>
+        <p>ログインしてください。</p>
+        <Link href="/login">ログインページへ</Link>
+      </div>
+    )
+  }
+
   return (
     <Flex
       h={[null, null, '100vh']}
@@ -122,8 +134,8 @@ export default function Dashboard() {
             </Flex>
           </Flex>
           <Flex flexDir="column" alignItems="center" mb={10} mt={5}>
-            <Avatar my={2} src="avatar-1.jpg" />
-            <Text textAlign="center">Calvin West</Text>
+            <Avatar my={2} src={session?.user?.image || ''} />
+            <Text textAlign="center">{session?.user?.name || ''}</Text>
           </Flex>
         </Flex>
       </Flex>
@@ -139,7 +151,7 @@ export default function Dashboard() {
         <Heading fontWeight="normal" mb={4} letterSpacing="tight">
           Welcome back,{' '}
           <Flex display="inline-flex" fontWeight="bold">
-            Calvin
+            {session?.user?.name || ''}
           </Flex>
         </Heading>
         <Text color="gray" fontSize="sm">

@@ -1,23 +1,26 @@
-// /pages/index.tsx
-
+import { NextPage } from 'next'
 import { useSession } from 'next-auth/react'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { LogoutButton } from '../components/LogoutButton'
+import Link from 'next/link'
 
-const HomePage = () => {
+const Logout: NextPage = () => {
   const { data: session } = useSession()
   const router = useRouter()
 
   if (!session?.user) {
     return (
       <div>
-        <p>ログインしてください。</p>
+        <p>ログインしていません。</p>
         <Link href="/login">ログインページへ</Link>
       </div>
     )
   }
-
-  router.push('/dashboard')
+  return (
+    <div>
+      <LogoutButton />
+    </div>
+  )
 }
 
-export default HomePage
+export default Logout

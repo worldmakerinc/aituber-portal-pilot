@@ -1,9 +1,18 @@
 import { NextPage } from 'next'
 import { LoginButton } from '../components/LoginButton'
+import { useSession } from 'next-auth/react'
 
-interface Props {}
+const Login: NextPage = () => {
+    const { data: session } = useSession()
 
-const Login: NextPage<Props> = ({}) => {
+    if (session?.user) {
+      return (
+        <div>
+          <p>{session.user.name}さん、ログイン済みです！</p>
+          <img src={session.user.image} alt={session.user.name} />
+        </div>
+      )
+    }
   return (
     <div>
       <LoginButton />

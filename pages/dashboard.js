@@ -27,8 +27,8 @@ import {
   FiHome,
   FiPieChart,
 } from 'react-icons/fi'
-import MyChart from '../components/MyChart'
 import { LoginButton } from '../components/LoginButton'
+import MyChart from '../components/MyChart'
 
 export default function Dashboard() {
   const [display, changeDisplay] = useState('hide')
@@ -44,36 +44,14 @@ export default function Dashboard() {
 
   const handleClickLink = async () => {
     if (!userData.linked) {
-      setLoading(true)
-
       try {
-        // Googleログイン
-        const result = await signIn('google', {
-          callbackUrl: `${window.location.origin}/api/auth/callback/google`,
-          redirect: false,
-        })
-        if (!result) {
-          throw new Error('Failed to sign in with Google')
-        }
-
-        const accessToken = session?.accessToken
-        const channelResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=id&mine=true`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        )
-        const channelData = await channelResponse.json()
-        const youtubeChannelId = channelData.items[0].id
-
+        setLoading(true)
         // 連携処理
         const apiUrl =
           'https://aituber-line-bot-backend.azurewebsites.net/api/link-youtube'
         const requestData = {
           line_user_id: userData.lineUserId,
-          youtube_channel_id: youtubeChannelId,
+          youtube_channel_id: userData.youtubeChannelId,
           display_name: session?.user?.name,
         }
         const response = await fetch(apiUrl, {
@@ -94,9 +72,6 @@ export default function Dashboard() {
           user_id: data.user_id,
           name: data.name,
         }))
-
-        // セッションの更新はNextAuthのAPIやコールバックを使用して行う必要があります
-        // ここでは、セッションの更新の方法を示していませんが、必要に応じて実装してください
       } catch (error) {
         console.error('Error linking YouTube:', error)
       } finally {
@@ -113,7 +88,7 @@ export default function Dashboard() {
       return
     }
     const response = await fetch(
-      'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
+      `https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2CcontentDetails%2Cstatistics&mine=true&key=${process.env.YOUTUBE_API_V3_API_KEY}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -559,6 +534,7 @@ export default function Dashboard() {
           p={7}
           borderRadius={15}
           onClick={fetchChannelId}
+          isDisabled={!session.user.accessToken}
         >
           YouTubeチャンネルIDを取得
         </Button>
@@ -570,21 +546,24 @@ export default function Dashboard() {
           borderRadius={15}
           onClick={() => handleClickLink}
           isLoading={loading}
-          isDisabled={userData.linked}
+          isDisabled={!userData.linked || !userData.youtubeChannelId}
           _loading={{
             bgColor: 'gray.500',
             _hover: { bgColor: 'gray.500' },
             _active: { bgColor: 'gray.500' },
           }}
         >
-          {userData.linked ? 'YopuTube連携済み' : 'Youtube連携する'}
+          {userData.linked ? 'YouTube連携済み' : 'YouTubeと連携する'}
           {loading && <Spinner />}
         </Button>
         <Heading letterSpacing="tight" mt={8}>
           Status
         </Heading>
-        <Text mt={4}>連携状況: {userData.linked ? 'Yes' : 'No'}</Text>
-        <Text mt={4}>YouTubeチャンネルID: {session.channelId}</Text>
+        <Text mt={4}>
+          <p>連携状況: {userData.linked ? 'Yes' : 'No'}</p>
+        </Text>
+        <Text mt={4}>YouTubeチャンネルID: {userData.youtubeChannelId}</Text>
+        <Text mt={4}>YouTubeアクセストークン: {session.user.accessToken}</Text>
         <Text mt={4}>LINEユーザーID: {userData.lineUserId}</Text>
         <Text mt={4}>システムユーザーID: {userData.userId}</Text>
       </Flex>

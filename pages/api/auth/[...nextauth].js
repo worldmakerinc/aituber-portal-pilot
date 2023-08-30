@@ -28,15 +28,11 @@ const authOptions = {
       return true
     },
     session: ({ session, user, token }) => {
-      const currentSessionUser = { ...session.user }
       console.log('session: session', session)
       console.log('session: user', user)
       console.log('session: token', token)
       if (session?.user) {
         session.user.id = token.uid
-        // session.user.email = currentSessionUser.email
-        // session.user.image = currentSessionUser.image
-        // session.user.name = currentSessionUser.name
         session.user.accessToken = token.accessToken
       }
       return session

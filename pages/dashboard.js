@@ -87,7 +87,7 @@ export default function Dashboard() {
       console.error('No access token available')
       return
     }
-    const response = await fetch(
+    fetch(
       `https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2CcontentDetails%2Cstatistics&mine=true&key=${process.env.YOUTUBE_API_V3_API_KEY}`,
       {
         headers: {
@@ -95,10 +95,15 @@ export default function Dashboard() {
         },
       }
     )
-    const data = await response.json()
-    console.log('channel id fetched data:', data)
-    const channelId = data?.items[0]?.id
-    console.log('チャンネルID:', channelId)
+      .then((response) => {
+        const data = response.json()
+        console.log('data:', data)
+        const channelId = data.items[0].id
+        console.log('チャンネルID:', channelId)
+      })
+      .catch((error) => {
+        console.error('Error fetching channel id:', error)
+      })
   }
 
   useEffect(() => {

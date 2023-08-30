@@ -1,17 +1,13 @@
 import {
   Avatar,
-  AvatarGroup,
-  Box,
   Button,
   Divider,
   Flex,
   Heading,
   Icon,
   IconButton,
-  Input,
-  InputGroup,
-  InputLeftElement,
   Link,
+  Spinner,
   Table,
   Tbody,
   Td,
@@ -20,28 +16,153 @@ import {
   Thead,
   Tr,
 } from '@chakra-ui/react'
-import { signOut, useSession } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 import {
-  FiBell,
   FiBox,
   FiCalendar,
   FiChevronDown,
   FiChevronUp,
-  FiCreditCard,
   FiDollarSign,
   FiHome,
   FiPieChart,
-  FiPlus,
-  FiSearch,
 } from 'react-icons/fi'
 import MyChart from '../components/MyChart'
+import { LoginButton } from '../components/LoginButton'
 
 export default function Dashboard() {
   const [display, changeDisplay] = useState('hide')
-  const [value, changeValue] = useState(1)
   const { data: session } = useSession()
   const [recentConversation, changeRecentConversation] = useState([''])
+  const [loading, setLoading] = useState(false)
+  const [userData, setUserData] = useState({
+    linked: false,
+    youtubeChannelId: '',
+    lineUserId: session?.user?.id,
+    userId: '',
+  })
+
+  const handleClickLink = async () => {
+    if (!userData.linked) {
+      setLoading(true)
+
+      try {
+        // Googleログイン
+        const result = await signIn('google', {
+          callbackUrl: `${window.location.origin}/api/auth/callback/google`,
+          redirect: false,
+        })
+        if (!result) {
+          throw new Error('Failed to sign in with Google')
+        }
+
+        const accessToken = session?.accessToken
+        const channelResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=id&mine=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        )
+        const channelData = await channelResponse.json()
+        const youtubeChannelId = channelData.items[0].id
+
+        // 連携処理
+        const apiUrl =
+          'https://aituber-line-bot-backend.azurewebsites.net/api/link-youtube'
+        const requestData = {
+          line_user_id: userData.lineUserId,
+          youtube_channel_id: youtubeChannelId,
+          display_name: session?.user?.name,
+        }
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+        })
+        if (!response.ok) {
+          throw new Error('Failed to link YouTube')
+        }
+        const data = await response.json()
+        setUserData((prevState) => ({
+          ...prevState,
+          linked: data.linked,
+          youtube_channel_id: data.youtube_channel_id,
+          user_id: data.user_id,
+          name: data.name,
+        }))
+
+        // セッションの更新はNextAuthのAPIやコールバックを使用して行う必要があります
+        // ここでは、セッションの更新の方法を示していませんが、必要に応じて実装してください
+      } catch (error) {
+        console.error('Error linking YouTube:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  const fetchChannelId = async () => {
+    const token = session.user.accessToken
+    console.log('token:', token)
+    if (!token) {
+      console.error('No access token available')
+      return
+    }
+    const response = await fetch(
+      'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    const data = await response.json()
+    console.log('channel id fetched data:', data)
+    const channelId = data?.items[0]?.id
+    console.log('チャンネルID:', channelId)
+  }
+
+  useEffect(() => {
+    const checkLinked = async () => {
+      try {
+        const requestBody = JSON.stringify({
+          line_user_id: session?.user?.id,
+        })
+
+        const response = await fetch(
+          'https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link',
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: requestBody,
+          }
+        )
+
+        const data = await response.json()
+        setUserData((prevState) => ({
+          ...prevState,
+          linked: data.linked,
+          youtubeChannelId: data.youtube_channel_id,
+          userId: data.user_id,
+        }))
+
+        if (data.conversations) {
+          changeRecentConversation(data.conversations)
+        } else {
+          console.error('Error:', data.error)
+        }
+      } catch (error) {
+        console.error('API fetch error:', error)
+      }
+    }
+    checkLinked()
+  }, [session])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,8 +173,16 @@ export default function Dashboard() {
         })
         console.log('requestBody:', requestBody)
 
+        setUserData((prevState) => ({
+          ...prevState,
+          lineUserId: session?.user?.id,
+          youtubeChannelId: session?.channelId,
+        }))
+
+        console.log('session:', session)
+
         const response = await fetch(
-          'https://aituber-line-bot-backend.azurewebsites.net/line/recent-conversation',
+          'https://aituber-line-bot-backend.azurewebsites.net/api/line/recent-conversation',
           {
             method: 'POST',
             headers: {
@@ -82,7 +211,7 @@ export default function Dashboard() {
     return (
       <div>
         <p>ログインしてください。</p>
-        <Link href="/login">ログインページへ</Link>
+        <LoginButton />
       </div>
     )
   }
@@ -402,253 +531,7 @@ export default function Dashboard() {
         overflow="auto"
         minW={[null, null, '300px', '300px', '400px']}
       >
-        <Flex alignContent="center">
-          <InputGroup
-            bgColor="#fff"
-            mb={4}
-            border="none"
-            borderColor="#fff"
-            borderRadius="10px"
-            mr={2}
-          >
-            <InputLeftElement
-              pointerEvents="none"
-              children={<FiSearch color="gray" />}
-            />
-            <Input type="number" placeholder="Search" borderRadius="10px" />
-          </InputGroup>
-          <IconButton
-            icon={<FiBell />}
-            fontSize="sm"
-            bgColor="#fff"
-            borderRadius="50%"
-            p="10px"
-            aria-label={''}
-          />
-          <Flex
-            w={30}
-            h={25}
-            bgColor="#B57295"
-            borderRadius="50%"
-            color="#fff"
-            align="center"
-            justify="center"
-            ml="-3"
-            mt="-2"
-            zIndex="100"
-            fontSize="xs"
-          >
-            2
-          </Flex>
-        </Flex>
-        <Heading letterSpacing="tight">My Cards</Heading>
-        {value == 1 && (
-          <Box
-            borderRadius="25px"
-            mt={4}
-            w="100%"
-            h="200px"
-            bgGradient="linear(to-t, #B57295, #29259A)"
-          >
-            <Flex
-              p="1em"
-              color="#fff"
-              flexDir="column"
-              h="100%"
-              justify="space-between"
-            >
-              <Flex justify="space-between" w="100%" align="flex-start">
-                <Flex flexDir="column">
-                  <Text color="gray.400">Current Balance</Text>
-                  <Text fontWeight="bold" fontSize="xl">
-                    $5,750.20
-                  </Text>
-                </Flex>
-                <Flex align="center">
-                  <Icon mr={2} as={FiCreditCard} />
-                  <Text>Rise.</Text>
-                </Flex>
-              </Flex>
-              <Text mb={4}>**** **** **** 1289</Text>
-              <Flex align="flex-end" justify="space-between">
-                <Flex>
-                  <Flex flexDir="column" mr={4}>
-                    <Text textTransform="uppercase" fontSize="xs">
-                      Valid Thru
-                    </Text>
-                    <Text fontSize="lg">12/23</Text>
-                  </Flex>
-                  <Flex flexDir="column">
-                    <Text textTransform="uppercase" fontSize="xs">
-                      CVV
-                    </Text>
-                    <Text fontSize="lg">***</Text>
-                  </Flex>
-                </Flex>
-                <Icon as={FiCreditCard} />
-              </Flex>
-            </Flex>
-          </Box>
-        )}
-        {value == 2 && (
-          <Box
-            borderRadius="25px"
-            mt={4}
-            w="100%"
-            h="200px"
-            bgGradient="linear(to-t, yellow.300, blue.500)"
-          >
-            <Flex
-              p="1em"
-              color="#fff"
-              flexDir="column"
-              h="100%"
-              justify="space-between"
-            >
-              <Flex justify="space-between" w="100%" align="flex-start">
-                <Flex flexDir="column">
-                  <Text color="gray.400">Current Balance</Text>
-                  <Text fontWeight="bold" fontSize="xl">
-                    $350.00
-                  </Text>
-                </Flex>
-                <Flex align="center">
-                  <Icon mr={2} as={FiCreditCard} />
-                  <Text>Rise.</Text>
-                </Flex>
-              </Flex>
-              <Text mb={4}>**** **** **** 8956</Text>
-              <Flex align="flex-end" justify="space-between">
-                <Flex>
-                  <Flex flexDir="column" mr={4}>
-                    <Text textTransform="uppercase" fontSize="xs">
-                      Valid Thru
-                    </Text>
-                    <Text fontSize="lg">9/24</Text>
-                  </Flex>
-                  <Flex flexDir="column">
-                    <Text textTransform="uppercase" fontSize="xs">
-                      CVV
-                    </Text>
-                    <Text fontSize="lg">***</Text>
-                  </Flex>
-                </Flex>
-                <Icon as={FiCreditCard} />
-              </Flex>
-            </Flex>
-          </Box>
-        )}
-        {value == 3 && (
-          <Box
-            borderRadius="25px"
-            mt={4}
-            w="100%"
-            h="200px"
-            bgGradient="linear(to-t, orange.300, pink.600)"
-          >
-            <Flex
-              p="1em"
-              color="#fff"
-              flexDir="column"
-              h="100%"
-              justify="space-between"
-            >
-              <Flex justify="space-between" w="100%" align="flex-start">
-                <Flex flexDir="column">
-                  <Text color="gray.400">Current Balance</Text>
-                  <Text fontWeight="bold" fontSize="xl">
-                    $2,150.72
-                  </Text>
-                </Flex>
-                <Flex align="center">
-                  <Icon mr={2} as={FiCreditCard} />
-                  <Text>Rise.</Text>
-                </Flex>
-              </Flex>
-              <Text mb={4}>**** **** **** 8353</Text>
-              <Flex align="flex-end" justify="space-between">
-                <Flex>
-                  <Flex flexDir="column" mr={4}>
-                    <Text textTransform="uppercase" fontSize="xs">
-                      Valid Thru
-                    </Text>
-                    <Text fontSize="lg">11/22</Text>
-                  </Flex>
-                  <Flex flexDir="column">
-                    <Text textTransform="uppercase" fontSize="xs">
-                      CVV
-                    </Text>
-                    <Text fontSize="lg">***</Text>
-                  </Flex>
-                </Flex>
-                <Icon as={FiCreditCard} />
-              </Flex>
-            </Flex>
-          </Box>
-        )}
-        <Flex justifyContent="center" mt={2}>
-          <Button
-            bgColor={value == 1 ? 'gray.600' : 'gray.400'}
-            size="xs"
-            mx={1}
-            onClick={() => changeValue(1)}
-          />
-          <Button
-            bgColor={value == 2 ? 'gray.600' : 'gray.400'}
-            size="xs"
-            mx={1}
-            onClick={() => changeValue(2)}
-          />
-          <Button
-            bgColor={value == 3 ? 'gray.600' : 'gray.400'}
-            size="xs"
-            mx={1}
-            onClick={() => changeValue(3)}
-          />
-        </Flex>
-        <Flex flexDir="column" my={4}>
-          <Flex justify="space-between" mb={2}>
-            <Text>Balance</Text>
-            <Text fontWeight="bold">$140.42</Text>
-          </Flex>
-          <Flex justify="space-between">
-            <Text>Credit Limit</Text>
-            <Text fontWeight="bold">$150.00</Text>
-          </Flex>
-        </Flex>
-        <Heading letterSpacing="tight" size="md" my={4}>
-          Send money to
-        </Heading>
-        <Flex>
-          <AvatarGroup size="md" max={3}>
-            <Avatar src="avatar-2.jpg" />
-            <Avatar src="avatar-3.jpg" />
-            <Avatar src="avatar-4.jpg" />
-            <Avatar src="avatar-4.jpg" />
-            <Avatar src="avatar-4.jpg" />
-          </AvatarGroup>
-          <Avatar icon={<FiPlus />} ml={2} color="#fff" bgColor="gray.300" />
-        </Flex>
-        <Text color="gray" mt={10} mb={2}>
-          Card number
-        </Text>
-        <InputGroup>
-          <InputLeftElement
-            pointerEvents="none"
-            children={<FiCreditCard color="gray.700" />}
-          />
-          <Input type="number" placeholder="xxxx xxxx xxxx xxxx" />
-        </InputGroup>
-        <Text color="gray" mt={4} mb={2}>
-          Sum
-        </Text>
-        <InputGroup>
-          <InputLeftElement
-            pointerEvents="none"
-            children={<FiDollarSign color="gray.700" />}
-          />
-          <Input type="number" placeholder="130.00" />
-        </InputGroup>
+        <Heading letterSpacing="tight">Functions</Heading>
         <Button
           mt={4}
           bgColor="blackAlpha.900"
@@ -657,8 +540,53 @@ export default function Dashboard() {
           borderRadius={15}
           onClick={() => signOut()}
         >
-          ログアウト
+          サインアウト
         </Button>
+        <Button
+          mt={4}
+          bgColor="blackAlpha.900"
+          color="#fff"
+          p={7}
+          borderRadius={15}
+          onClick={() => signIn('google')}
+        >
+          Googleログイン
+        </Button>
+        <Button
+          mt={4}
+          bgColor="blackAlpha.900"
+          color="#fff"
+          p={7}
+          borderRadius={15}
+          onClick={fetchChannelId}
+        >
+          YouTubeチャンネルIDを取得
+        </Button>
+        <Button
+          mt={4}
+          bgColor="blackAlpha.900"
+          color="#fff"
+          p={7}
+          borderRadius={15}
+          onClick={() => handleClickLink}
+          isLoading={loading}
+          isDisabled={userData.linked}
+          _loading={{
+            bgColor: 'gray.500',
+            _hover: { bgColor: 'gray.500' },
+            _active: { bgColor: 'gray.500' },
+          }}
+        >
+          {userData.linked ? 'YopuTube連携済み' : 'Youtube連携する'}
+          {loading && <Spinner />}
+        </Button>
+        <Heading letterSpacing="tight" mt={8}>
+          Status
+        </Heading>
+        <Text mt={4}>連携状況: {userData.linked ? 'Yes' : 'No'}</Text>
+        <Text mt={4}>YouTubeチャンネルID: {session.channelId}</Text>
+        <Text mt={4}>LINEユーザーID: {userData.lineUserId}</Text>
+        <Text mt={4}>システムユーザーID: {userData.userId}</Text>
       </Flex>
     </Flex>
   )

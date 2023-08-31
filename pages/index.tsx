@@ -1,8 +1,8 @@
 // /pages/index.tsx
 
 import { useSession } from 'next-auth/react'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { LoginButton } from '../components/LoginButton'
 
 const HomePage = () => {
   const { data: session } = useSession()
@@ -10,9 +10,17 @@ const HomePage = () => {
 
   if (!session?.user) {
     return (
-      <div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
         <p>ログインしてください。</p>
-        <Link href="/login">ログインページへ</Link>
+        <LoginButton />
       </div>
     )
   }

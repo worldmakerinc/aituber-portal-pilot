@@ -189,7 +189,15 @@ export default function Dashboard() {
 
   if (!session?.user) {
     return (
-      <div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
         <p>ログインしてください。</p>
         <LoginButton />
       </div>

@@ -65,18 +65,22 @@ export default function Dashboard() {
           throw new Error('Failed to link YouTube')
         }
         const data = await response.json()
-        setUserData((prevState) => ({
-          ...prevState,
-          linked: data.linked,
-          youtube_channel_id: data.youtube_channel_id,
-          user_id: data.user_id,
-          name: data.name,
-        }))
+        // setUserData((prevState) => ({
+        //   ...prevState,
+        //   linked: data.linked,
+        //   youtube_channel_id: data.youtube_channel_id,
+        //   user_id: data.user_id,
+        //   name: data.name,
+        // }))
+        alert('連携が完了しました。')
+        console.log('data:', data)
       } catch (error) {
         console.error('Error linking YouTube:', error)
       } finally {
         setLoading(false)
       }
+    } else {
+      alert('すでに連携済みです。')
     }
   }
 
@@ -585,9 +589,9 @@ export default function Dashboard() {
           color="#fff"
           p={7}
           borderRadius={15}
-          onClick={() => handleClickLink}
+          onClick={handleClickLink}
           isLoading={loading}
-          isDisabled={!userData.linked || !userData.youtubeChannelId}
+          isDisabled={userData.linked || !userData.youtubeChannelId}
           _loading={{
             bgColor: 'gray.500',
             _hover: { bgColor: 'gray.500' },

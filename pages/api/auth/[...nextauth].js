@@ -13,7 +13,8 @@ const authOptions = {
       clientSecret: process.env.YOUTUBE_API_V3_CLIENT_SECRET ?? '',
       authorizationUrl:
         'https://accounts.google.com/o/oauth2/v2/auth?prompt=consent&access_type=offline&response_type=code',
-      scope: 'https://www.googleapis.com/auth/youtube.readonly',
+      // scope: 'https://www.googleapis.com/auth/youtube.readonly',
+      scope: 'https://www.googleapis.com/auth/youtube',
     }),
   ],
   callbacks: {

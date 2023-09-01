@@ -29,28 +29,8 @@ import {
 } from 'react-icons/fi'
 import { LoginButton } from '../components/LoginButton'
 import MyChart from '../components/MyChart'
-import YouTubeSearch from '../components/YouTubeSearch'
 
-export async function getStaticProps() {
-  let apiUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=PLgRxtfPNGHyhEDLcWxN5VGbfU00iAU94-&key=${process.env.YOUTUBE_API_V3_API_KEY}
-  `
-  let res = await fetch(apiUrl)
-  if (!res) return
-  const videoData = await res.json()
-  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet%2CcontentDetails%2Cstatistics&mine=true&key=${process.env.YOUTUBE_API_V3_API_KEY}`
-  res = await fetch(apiUrl)
-  if (!res) return
-  const channelData = await res.json()
-  return {
-    props: {
-      videoData,
-      channelData,
-      apiUrl
-    },
-  }
-}
-
-export default function Dashboard({ videoData, channelData, apiUrl }) {
+export default function Dashboard() {
   const [display, changeDisplay] = useState('hide')
   const { data: session } = useSession()
   const [recentConversation, changeRecentConversation] = useState([''])
@@ -107,16 +87,21 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
       console.error('No access token available')
       return
     }
-    fetch(apiUrl, {
+    fetch('https://www.googleapis.com/youtube/v3/channels?part=id&mine=true', {
       headers: {
         Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
     })
-      .then((response) => {
-        const data = response.json()
+      .then((response) => response.json())
+      .then((data) => {
         console.log('data:', data)
         const channelId = data.items[0].id
         console.log('チャンネルID:', channelId)
+        setUserData((prevState) => ({
+          ...prevState,
+          youtubeChannelId: channelId,
+        }))
       })
       .catch((error) => {
         console.error('Error fetching channel id:', error)
@@ -145,9 +130,15 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
         setUserData((prevState) => ({
           ...prevState,
           linked: data.linked,
-          youtubeChannelId: data.youtube_channel_id,
           userId: data.user_id,
         }))
+
+        if (data.linked) {
+          setUserData((prevState) => ({
+            ...prevState,
+            youtubeChannelId: data.youtube_channel_id,
+          }))
+        }
 
         if (data.conversations) {
           changeRecentConversation(data.conversations)
@@ -173,7 +164,6 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
         setUserData((prevState) => ({
           ...prevState,
           lineUserId: session?.user?.id,
-          youtubeChannelId: session?.channelId,
         }))
 
         console.log('session:', session)
@@ -203,11 +193,6 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
     }
     fetchData()
   }, [session])
-
-  useEffect(() => {
-    console.log('videoData:', videoData)
-    console.log('channelData:', channelData)
-  }, [])
 
   if (!session?.user) {
     return (
@@ -568,9 +553,10 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
           color="#fff"
           p={7}
           borderRadius={15}
-          onClick={YouTubeSearch}
+          onClick={fetchChannelId}
+          isDisabled={!session.user.accessToken}
         >
-          Youtubeを検索
+          YouTubeチャンネルIDを取得
         </Button>
         <Button
           mt={4}
@@ -578,10 +564,20 @@ export default function Dashboard({ videoData, channelData, apiUrl }) {
           color="#fff"
           p={7}
           borderRadius={15}
-          onClick={fetchChannelId}
-          isDisabled={!session.user.accessToken}
+          onClick={() => {
+            const channelId = userData.youtubeChannelId
+            if (channelId) {
+              const url = `https://www.youtube.com/channel/${channelId}`
+              window.open(url, '_blank')
+            } else {
+              console.error(
+                'YouTubeチャンネルIDが存在しないため、ページを開くことができません。'
+              )
+            }
+          }}
+          isDisabled={!userData.youtubeChannelId}
         >
-          YouTubeチャンネルIDを取得
+          YouTubeチャンネルページを開く
         </Button>
         <Button
           mt={4}

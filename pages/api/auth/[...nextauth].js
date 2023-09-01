@@ -9,12 +9,14 @@ const authOptions = {
       clientSecret: process.env.LINE_CLIENT_SECRET ?? '',
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.YOUTUBE_API_V3_CLIENT_SECRET ?? '',
-      authorizationUrl:
-        'https://accounts.google.com/o/oauth2/v2/auth?prompt=consent&access_type=offline&response_type=code',
-      // scope: 'https://www.googleapis.com/auth/youtube.readonly',
-      scope: 'https://www.googleapis.com/auth/youtube',
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.YOUTUBE_API_V3_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope:
+            'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtube',
+        },
+      },
     }),
   ],
   callbacks: {

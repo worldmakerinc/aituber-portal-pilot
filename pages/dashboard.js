@@ -182,7 +182,7 @@ export default function Dashboard() {
       }
       try {
         const response = await fetch(
-          'https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link?line_user_id=${lineUserId}',
+          `https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link?line_user_id=${lineUserId}`,
           {
             method: 'GET',
             headers: {
@@ -196,7 +196,7 @@ export default function Dashboard() {
         setUserData((prevState) => ({
           ...prevState,
           linked: data.linked,
-          userId: data.userId,
+          userId: data.user_id,
         }))
 
         if (data.linked) {

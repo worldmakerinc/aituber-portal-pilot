@@ -1,49 +1,45 @@
 import {
   Avatar,
   Button,
-  Divider,
   Flex,
   Heading,
   Icon,
-  IconButton,
   Link,
   Spinner,
-  Table,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
 } from '@chakra-ui/react'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
-import {
-  FiBox,
-  FiCalendar,
-  FiChevronDown,
-  FiChevronUp,
-  FiDollarSign,
-  FiHome,
-  FiPieChart,
-} from 'react-icons/fi'
+import { FiBox, FiDollarSign, FiHome, FiPieChart } from 'react-icons/fi'
 import { LoginButton } from '../components/LoginButton'
-import MyChart from '../components/MyChart'
 
 export default function Dashboard() {
-  const [display, changeDisplay] = useState('hide')
   const { data: session } = useSession()
   const [recentConversation, changeRecentConversation] = useState([''])
   const [loading, setLoading] = useState(false)
   const [userData, setUserData] = useState({
     linked: false,
-    youtubeChannelId: '',
-    lineUserId: session?.user?.id,
     userId: '',
+    lineUserId: session?.line?.id,
+    image: session?.line?.image,
+    displayName: session?.line?.name || '',
+    youtubeChannelId: '',
+    youtubeAccessToken: '',
   })
 
   const handleClickLink = async () => {
     if (!userData.linked) {
+      const lineUserId = localStorage.getItem('lineUserId')
+      if (!lineUserId) {
+        alert('LINEユーザーIDが存在しません。')
+        return
+      } else if (!userData.youtubeChannelId) {
+        alert('YouTubeチャンネルIDが存在しません。')
+        return
+      } else if (!userData.displayName) {
+        alert('の表示名が存在しません。')
+        return
+      }
       try {
         setLoading(true)
         // 連携処理
@@ -52,7 +48,7 @@ export default function Dashboard() {
         const requestData = {
           line_user_id: userData.lineUserId,
           youtube_channel_id: userData.youtubeChannelId,
-          display_name: session?.user?.name,
+          display_name: userData.displayName,
         }
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -65,13 +61,11 @@ export default function Dashboard() {
           throw new Error('Failed to link YouTube')
         }
         const data = await response.json()
-        // setUserData((prevState) => ({
-        //   ...prevState,
-        //   linked: data.linked,
-        //   youtube_channel_id: data.youtube_channel_id,
-        //   user_id: data.user_id,
-        //   name: data.name,
-        // }))
+        setUserData((prevState) => ({
+          ...prevState,
+          linked: data.linked,
+          userId: data.user_id,
+        }))
         alert('連携が完了しました。')
         console.log('data:', data)
       } catch (error) {
@@ -85,8 +79,7 @@ export default function Dashboard() {
   }
 
   const fetchChannelId = async () => {
-    const token = session.user.accessToken
-    console.log('token:', token)
+    const token = userData.youtubeAccessToken
     if (!token) {
       console.error('No access token available')
       return
@@ -114,10 +107,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     const checkLinked = async () => {
+      const lineUserId = localStorage.getItem('lineUserId')
+      if (lineUserId) return
       try {
         const requestBody = JSON.stringify({
-          line_user_id: session?.user?.id,
+          line_user_id: lineUserId,
         })
+
+        console.log('checkLinked requestBody:', requestBody)
 
         const response = await fetch(
           'https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link',
@@ -143,30 +140,22 @@ export default function Dashboard() {
             youtubeChannelId: data.youtube_channel_id,
           }))
         }
-
-        if (data.conversations) {
-          changeRecentConversation(data.conversations)
-        } else {
-          console.error('Error:', data.error)
-        }
       } catch (error) {
         console.error('API fetch error:', error)
       }
     }
-    const fetchRecentConversation = async () => {
+    const fetchRecentLineConversation = async () => {
+      const lineUserId = localStorage.getItem('lineUserId')
+      if (!lineUserId) {
+        console.log('lineUserIdが存在しないため、最近の会話を取得できません。')
+        return
+      }
       try {
         const requestBody = JSON.stringify({
-          user_id: session?.user?.id,
+          user_id: lineUserId,
           num_conversations: 3,
         })
-        console.log('requestBody:', requestBody)
-
-        setUserData((prevState) => ({
-          ...prevState,
-          lineUserId: session?.user?.id,
-        }))
-
-        console.log('session:', session)
+        console.log('fetchRecentConversation requestBody:', requestBody)
 
         const response = await fetch(
           'https://aituber-line-bot-backend.azurewebsites.net/api/line/recent-conversation',
@@ -180,7 +169,6 @@ export default function Dashboard() {
         )
 
         const data = await response.json()
-        console.log('data:', data)
 
         if (data.conversations) {
           changeRecentConversation(data.conversations)
@@ -191,9 +179,40 @@ export default function Dashboard() {
         console.error('API fetch error:', error)
       }
     }
+
+    console.log('session:', session)
+    if (!session) return
+    else if (session.line) {
+      setUserData((prevState) => ({
+        ...prevState,
+        lineUserId: session.line.id,
+        image: session.line.image,
+        displayName: session.line.name,
+      }))
+      localStorage.setItem('lineUserId', session.line.id)
+      localStorage.setItem('image', session.line.image)
+      localStorage.setItem('displayName', session.line.name)
+    } else if (session.google) {
+      setUserData((prevState) => ({
+        ...prevState,
+        youtubeAccessToken: session.google.accessToken,
+      }))
+    }
     checkLinked()
-    fetchRecentConversation()
+    fetchRecentLineConversation()
   }, [session])
+
+  useEffect(() => {
+    const lineUserId = localStorage.getItem('lineUserId')
+    const image = localStorage.getItem('image')
+    const displayName = localStorage.getItem('displayName')
+    setUserData((prevState) => ({
+      ...prevState,
+      lineUserId,
+      image,
+      displayName,
+    }))
+  })
 
   if (!session?.user) {
     return (
@@ -295,8 +314,8 @@ export default function Dashboard() {
             </Flex>
           </Flex>
           <Flex flexDir="column" alignItems="center" mb={10} mt={5}>
-            <Avatar my={2} src={session?.user?.image || ''} />
-            <Text textAlign="center">{session?.user?.name || ''}</Text>
+            <Avatar my={2} src={userData.image || ''} />
+            <Text textAlign="center">{userData.displayName || ''}</Text>
           </Flex>
         </Flex>
       </Flex>
@@ -312,208 +331,17 @@ export default function Dashboard() {
         <Heading fontWeight="normal" mb={4} letterSpacing="tight">
           Welcome back,{' '}
           <Flex display="inline-flex" fontWeight="bold">
-            {session?.user?.name || ''}
+            {userData.displayName}
           </Flex>
         </Heading>
         <Flex justifyContent="space-between" mb={8}>
           <Flex align="left" flexDir="column">
-            <Heading as="h2" size="lg" letterSpacing="tight">
+            <Heading as="h2" size="lg" letterSpacing="tight" mb={4}>
               Recent Conversations
             </Heading>
             {recentConversation.map((conversation, index) => (
               <Text>{conversation}</Text>
             ))}
-          </Flex>
-        </Flex>
-        <Text color="gray" fontSize="sm">
-          My Balance
-        </Text>
-        <Text fontWeight="bold" fontSize="2xl">
-          $5,750.20
-        </Text>
-        <MyChart />
-        <Flex justifyContent="space-between" mt={8}>
-          <Flex align="flex-end">
-            <Heading as="h2" size="lg" letterSpacing="tight">
-              Transactions
-            </Heading>
-            <Text fontSize="small" color="gray" ml={4}>
-              Apr 2021
-            </Text>
-          </Flex>
-          <IconButton icon={<FiCalendar />} aria-label={''} />
-        </Flex>
-        <Flex flexDir="column">
-          <Flex overflow="auto">
-            <Table variant="unstyled" mt={4}>
-              <Thead>
-                <Tr color="gray">
-                  <Th>Name of transaction</Th>
-                  <Th>Category</Th>
-                  <Th isNumeric>Cashback</Th>
-                  <Th isNumeric>Amount</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                <Tr>
-                  <Td>
-                    <Flex align="center">
-                      <Avatar size="sm" mr={2} src="amazon.jpeg" />
-                      <Flex flexDir="column">
-                        <Heading size="sm" letterSpacing="tight">
-                          Amazon
-                        </Heading>
-                        <Text fontSize="sm" color="gray">
-                          Apr 24, 2021 at 1:40pm
-                        </Text>
-                      </Flex>
-                    </Flex>
-                  </Td>
-                  <Td>Electronic Devices</Td>
-                  <Td isNumeric>+$2</Td>
-                  <Td isNumeric>
-                    <Text fontWeight="bold" display="inline-table">
-                      -$242
-                    </Text>
-                    .00
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td>
-                    <Flex align="center">
-                      <Avatar size="sm" mr={2} src="starbucks.png" />
-                      <Flex flexDir="column">
-                        <Heading size="sm" letterSpacing="tight">
-                          Starbucks
-                        </Heading>
-                        <Text fontSize="sm" color="gray">
-                          Apr 22, 2021 at 2:43pm
-                        </Text>
-                      </Flex>
-                    </Flex>
-                  </Td>
-                  <Td>Cafe and restaurant</Td>
-                  <Td isNumeric>+$23</Td>
-                  <Td isNumeric>
-                    <Text fontWeight="bold" display="inline-table">
-                      -$32
-                    </Text>
-                    .00
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td>
-                    <Flex align="center">
-                      <Avatar size="sm" mr={2} src="youtube.png" />
-                      <Flex flexDir="column">
-                        <Heading size="sm" letterSpacing="tight">
-                          YouTube
-                        </Heading>
-                        <Text fontSize="sm" color="gray">
-                          Apr 13, 2021 at 11:23am
-                        </Text>
-                      </Flex>
-                    </Flex>
-                  </Td>
-                  <Td>Social Media</Td>
-                  <Td isNumeric>+$4</Td>
-                  <Td isNumeric>
-                    <Text fontWeight="bold" display="inline-table">
-                      -$112
-                    </Text>
-                    .00
-                  </Td>
-                </Tr>
-                {display == 'show' && (
-                  <>
-                    <Tr>
-                      <Td>
-                        <Flex align="center">
-                          <Avatar size="sm" mr={2} src="amazon.jpeg" />
-                          <Flex flexDir="column">
-                            <Heading size="sm" letterSpacing="tight">
-                              Amazon
-                            </Heading>
-                            <Text fontSize="sm" color="gray">
-                              Apr 12, 2021 at 9:40pm
-                            </Text>
-                          </Flex>
-                        </Flex>
-                      </Td>
-                      <Td>Electronic Devices</Td>
-                      <Td isNumeric>+$2</Td>
-                      <Td isNumeric>
-                        <Text fontWeight="bold" display="inline-table">
-                          -$242
-                        </Text>
-                        .00
-                      </Td>
-                    </Tr>
-                    <Tr>
-                      <Td>
-                        <Flex align="center">
-                          <Avatar size="sm" mr={2} src="starbucks.png" />
-                          <Flex flexDir="column">
-                            <Heading size="sm" letterSpacing="tight">
-                              Starbucks
-                            </Heading>
-                            <Text fontSize="sm" color="gray">
-                              Apr 10, 2021 at 2:10pm
-                            </Text>
-                          </Flex>
-                        </Flex>
-                      </Td>
-                      <Td>Cafe and restaurant</Td>
-                      <Td isNumeric>+$23</Td>
-                      <Td isNumeric>
-                        <Text fontWeight="bold" display="inline-table">
-                          -$32
-                        </Text>
-                        .00
-                      </Td>
-                    </Tr>
-                    <Tr>
-                      <Td>
-                        <Flex align="center">
-                          <Avatar size="sm" mr={2} src="youtube.png" />
-                          <Flex flexDir="column">
-                            <Heading size="sm" letterSpacing="tight">
-                              YouTube
-                            </Heading>
-                            <Text fontSize="sm" color="gray">
-                              Apr 7, 2021 at 9:03am
-                            </Text>
-                          </Flex>
-                        </Flex>
-                      </Td>
-                      <Td>Social Media</Td>
-                      <Td isNumeric>+$4</Td>
-                      <Td isNumeric>
-                        <Text fontWeight="bold" display="inline-table">
-                          -$112
-                        </Text>
-                        .00
-                      </Td>
-                    </Tr>
-                  </>
-                )}
-              </Tbody>
-            </Table>
-          </Flex>
-          <Flex align="center">
-            <Divider />
-            <IconButton
-              icon={display == 'show' ? <FiChevronUp /> : <FiChevronDown />}
-              onClick={() => {
-                if (display == 'show') {
-                  changeDisplay('none')
-                } else {
-                  changeDisplay('show')
-                }
-              }}
-              aria-label={''}
-            />
-            <Divider />
           </Flex>
         </Flex>
       </Flex>
@@ -555,7 +383,7 @@ export default function Dashboard() {
           p={7}
           borderRadius={15}
           onClick={fetchChannelId}
-          isDisabled={!session.user.accessToken}
+          isDisabled={!session.google?.accessToken}
         >
           YouTubeチャンネルIDを取得
         </Button>
@@ -602,10 +430,12 @@ export default function Dashboard() {
           Status
         </Heading>
         <Text mt={4}>
-          <p>連携状況: {userData.linked ? 'Yes' : 'No'}</p>
+          <p>連携状況: {userData.linked ? '連携済み' : '未連携'}</p>
         </Text>
         <Text mt={4}>YouTubeチャンネルID: {userData.youtubeChannelId}</Text>
-        <Text mt={4}>YouTubeアクセストークン: {session.user.accessToken}</Text>
+        <Text mt={4}>
+          YouTubeアクセストークン: {userData.youtubeAccessToken}
+        </Text>
         <Text mt={4}>LINEユーザーID: {userData.lineUserId}</Text>
         <Text mt={4}>システムユーザーID: {userData.userId}</Text>
       </Flex>

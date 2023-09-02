@@ -106,44 +106,6 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    const checkLinked = async () => {
-      const lineUserId = localStorage.getItem('lineUserId')
-      if (lineUserId) return
-      try {
-        const requestBody = JSON.stringify({
-          line_user_id: lineUserId,
-        })
-
-        console.log('checkLinked requestBody:', requestBody)
-
-        const response = await fetch(
-          'https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link',
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: requestBody,
-          }
-        )
-
-        const data = await response.json()
-        setUserData((prevState) => ({
-          ...prevState,
-          linked: data.linked,
-          userId: data.user_id,
-        }))
-
-        if (data.linked) {
-          setUserData((prevState) => ({
-            ...prevState,
-            youtubeChannelId: data.youtube_channel_id,
-          }))
-        }
-      } catch (error) {
-        console.error('API fetch error:', error)
-      }
-    }
     const fetchRecentLineConversation = async () => {
       const lineUserId = localStorage.getItem('lineUserId')
       if (!lineUserId) {
@@ -198,7 +160,6 @@ export default function Dashboard() {
         youtubeAccessToken: session.google.accessToken,
       }))
     }
-    checkLinked()
     fetchRecentLineConversation()
   }, [session])
 
@@ -212,7 +173,44 @@ export default function Dashboard() {
       image,
       displayName,
     }))
-  })
+
+    const checkLinked = async () => {
+      const lineUserId = localStorage.getItem('lineUserId')
+      if (!lineUserId) {
+        console.log('lineUserIdが存在しないため、連携状況を確認できません。')
+        return
+      }
+      try {
+        const response = await fetch(
+          'https://aituber-line-bot-backend.azurewebsites.net/api/check-youtube-link?line_user_id=${lineUserId}',
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+
+        const data = await response.json()
+        console.log('checkLinked data:', data)
+        setUserData((prevState) => ({
+          ...prevState,
+          linked: data.linked,
+          userId: data.userId,
+        }))
+
+        if (data.linked) {
+          setUserData((prevState) => ({
+            ...prevState,
+            youtubeChannelId: data.youtube_channel_id,
+          }))
+        }
+      } catch (error) {
+        console.error('API fetch error:', error)
+      }
+    }
+    checkLinked()
+  }, [])
 
   if (!session?.user) {
     return (
@@ -340,7 +338,7 @@ export default function Dashboard() {
               Recent Conversations
             </Heading>
             {recentConversation.map((conversation, index) => (
-              <Text>{conversation}</Text>
+              <Text key={index}>{conversation}</Text>
             ))}
           </Flex>
         </Flex>
@@ -429,9 +427,7 @@ export default function Dashboard() {
         <Heading letterSpacing="tight" mt={8}>
           Status
         </Heading>
-        <Text mt={4}>
-          <p>連携状況: {userData.linked ? '連携済み' : '未連携'}</p>
-        </Text>
+        <Text mt={4}>連携状況: {userData.linked ? '連携済み' : '未連携'}</Text>
         <Text mt={4}>YouTubeチャンネルID: {userData.youtubeChannelId}</Text>
         <Text mt={4}>
           YouTubeアクセストークン: {userData.youtubeAccessToken}

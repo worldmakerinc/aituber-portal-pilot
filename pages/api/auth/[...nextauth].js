@@ -26,26 +26,42 @@ const authOptions = {
       console.log('signIn profile:', profile)
 
       if (account.provider === 'google') {
-        user.accessToken = account.access_token
+        user.google = {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          accessToken: account.access_token,
+        }
+      } else if (account.provider === 'line') {
+        user.line = {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+        }
       }
       return true
     },
-    session: ({ session, user, token }) => {
+    session: ({ session, token }) => {
       console.log('session: session', session)
-      console.log('session: user', user)
       console.log('session: token', token)
-      if (session?.user) {
-        session.user.id = token.uid
-        session.user.accessToken = token.accessToken
+      if (token.google) {
+        session.google = token.google
+      }
+      if (token.line) {
+        session.line = token.line
       }
       return session
     },
-    jwt: async ({ user, token }) => {
+    jwt: async ({ token, user }) => {
       console.log('jwt: user', user)
       console.log('jwt: token', token)
-      if (user) {
-        token.uid = user.id
-        token.accessToken = user.accessToken
+      if (user?.google) {
+        token.google = user.google
+      }
+      if (user?.line) {
+        token.line = user.line
       }
       return token
     },

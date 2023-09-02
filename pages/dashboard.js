@@ -153,11 +153,7 @@ export default function Dashboard() {
         console.error('API fetch error:', error)
       }
     }
-    checkLinked()
-  }, [session])
-
-  useEffect(() => {
-    const fetchData = async () => {
+    const fetchRecentConversation = async () => {
       try {
         const requestBody = JSON.stringify({
           user_id: session?.user?.id,
@@ -195,7 +191,8 @@ export default function Dashboard() {
         console.error('API fetch error:', error)
       }
     }
-    fetchData()
+    checkLinked()
+    fetchRecentConversation()
   }, [session])
 
   if (!session?.user) {
